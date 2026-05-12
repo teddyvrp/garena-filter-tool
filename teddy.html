@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Công cụ lọc dữ liệu tài khoản Liên Quân Mobile - bản HTML đơn file" />
+  <meta name="theme-color" content="#5865f2" />
+  <title>Lọc acc LQ - Auto Filter Fixed</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='75' font-size='75'>⚔️</text></svg>">
+
+  <style>
+    :root {
+      --primary: #5865f2;
+      --primary-hover: #4752c4;
+      --success: #2ecc71;
+      --success-hover: #27ae60;
+      --info: #00bcd4;
+      --info-hover: #00acc1;
+      --danger: #e74c3c;
+      --danger-hover: #c0392b;
+      --secondary: #6c757d;
+      --secondary-hover: #545b62;
+
+      --bg: #eef3fb;
+      --panel: rgba(255,255,255,.92);
+      --panel-solid: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: rgba(148,163,184,.35);
+      --input: #ffffff;
+      --shadow: 0 12px 35px rgba(15,23,42,.12);
+      --radius: 16px;
+    }
+
+    body.dark-mode {
+      --bg: #0f172a;
+      --panel: rgba(30,41,59,.92);
+      --panel-solid: #1e293b;
+      --text: #f1f5f9;
+      --muted: #cbd5e1;
+      --border: rgba(148,163,184,.25);
+      --input: #111827;
+      --shadow: 0 14px 40px rgba(0,0,0,.45);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(88,101,242,.22), transparent 36%),
+        radial-gradient(circle at bottom right, rgba(46,204,113,.18), transparent 30%),
+        var(--bg);
+      color: var(--text);
+      transition: background .25s ease, color .25s ease;
+    }
+
+    .container {
+      width: min(1500px, calc(100% - 32px));
+      margin: 18px auto;
+    }
+
+    .app-header {
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .app-header h1 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 34px);
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 330px 1fr 420px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .filter-panel,
+    .center-panel,
+    .output-panel,
+    .modal-content {
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+    }
+
+    .filter-panel,
+    .center-panel,
+    .output-panel {
+      padding: 18px;
+    }
+
+    .filter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+    }
+
+    .filter-section {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 15px;
+      margin: 14px 0;
+      background: rgba(255,255,255,.35);
+    }
+
+    body.dark-mode .filter-section {
+      background: rgba(15,23,42,.28);
+    }
+
+    legend {
+      font-weight: 800;
+      padding: 0 8px;
+    }
+
+    .filter-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .filter-item {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 7px;
+    }
+
+    small {
+      display: block;
+      color: var(--muted);
+      margin-top: 5px;
+      font-size: 12px;
+    }
+
+    .input-text,
+    .input-number,
+    .input-select,
+    .text-area {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 11px 12px;
+      background: var(--input);
+      color: var(--text);
+      outline: none;
+      transition: border .2s ease, box-shadow .2s ease, transform .15s ease;
+    }
+
+    .input-text:focus,
+    .input-number:focus,
+    .input-select:focus,
+    .text-area:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(88,101,242,.18);
+    }
+
+    .text-area {
+      min-height: 360px;
+      resize: vertical;
+      font-family: Consolas, "Courier New", monospace;
+      line-height: 1.45;
+    }
+
+    .text-area--output {
+      min-height: 420px;
+    }
+
+    .paste-area {
+      height: 300px;
+    }
+
+    .data-info {
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .button-group,
+    .action-buttons,
+    .modal-footer {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .button-group--vertical {
+      flex-direction: column;
+    }
+
+    .action-buttons {
+      margin-top: 14px;
+    }
+
+    .btn {
+      position: relative;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: .25px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition:
+        transform .15s ease,
+        box-shadow .2s ease,
+        background .2s ease,
+        opacity .2s ease;
+      box-shadow: 0 10px 22px rgba(15,23,42,.16);
+      user-select: none;
+      overflow: hidden;
+      color: white;
+    }
+
+    .btn::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent, rgba(255,255,255,.28), transparent);
+      transform: translateX(-105%);
+      transition: .55s;
+    }
+
+    .btn:hover::before {
+      transform: translateX(105%);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 28px rgba(15,23,42,.22);
+    }
+
+    .btn:active {
+      transform: scale(.97);
+    }
+
+    .btn:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+      transform: none !important;
+      filter: grayscale(.18);
+      box-shadow: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #7b8cff);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, var(--primary-hover), #6678ff);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, var(--success), #52e59a);
+    }
+
+    .btn-success:hover {
+      background: linear-gradient(135deg, var(--success-hover), #39d98a);
+    }
+
+    .btn-info {
+      background: linear-gradient(135deg, var(--info), #4dd0e1);
+    }
+
+    .btn-info:hover {
+      background: linear-gradient(135deg, var(--info-hover), #26c6da);
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, var(--secondary), #8a949e);
+    }
+
+    .btn-secondary:hover {
+      background: linear-gradient(135deg, var(--secondary-hover), #747d86);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, var(--danger), #ff6b5e);
+    }
+
+    .btn-danger:hover {
+      background: linear-gradient(135deg, var(--danger-hover), #ff5445);
+    }
+
+    .btn-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--panel-solid);
+      color: var(--text);
+      box-shadow: 0 8px 20px rgba(15,23,42,.12);
+      cursor: pointer;
+      display: inline-grid;
+      place-items: center;
+      font-size: 18px;
+      transition: .18s ease;
+    }
+
+    .btn-icon:hover {
+      transform: translateY(-2px) rotate(-3deg);
+      border-color: var(--primary);
+      box-shadow: 0 12px 24px rgba(88,101,242,.22);
+    }
+
+    .label-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 650;
+      margin: 8px 0;
+    }
+
+    .sss-skin-list {
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(88,101,242,.08);
+      margin-top: 8px;
+    }
+
+    .log-area {
+      min-height: 150px;
+      max-height: 220px;
+      overflow: auto;
+      background: var(--input);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .log-info {
+      color: var(--text);
+      margin-bottom: 5px;
+    }
+
+    .log-error {
+      color: #ff6b6b;
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .modal {
+      border: none;
+      background: transparent;
+      padding: 0;
+      width: min(720px, calc(100% - 30px));
+    }
+
+    .modal::backdrop {
+      background: rgba(15,23,42,.62);
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-content {
+      padding: 20px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .modal-description {
+      color: var(--muted);
+    }
+
+    .hidden-file-input {
+      display: none;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .filter-panel.is-collapsed .filter-form {
+      display: none;
+    }
+
+    .warning-box {
+      border: 1px solid rgba(243,156,18,.35);
+      background: rgba(243,156,18,.12);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 1200px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .text-area,
+      .text-area--output {
+        min-height: 260px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        width: min(100% - 18px, 1500px);
+      }
+
+      .app-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .filter-row {
+        grid-template-columns: 1fr;
+      }
+
+      .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <noscript>
+    <p style="color:red;text-align:center;font-weight:700">
+      Tool này cần bật JavaScript để hoạt động.
+    </p>
+  </noscript>
+
+  <div class="container">
+    <header class="app-header">
+      <div class="header-content">
+        <h1>⚔️ Lọc acc LQ by @Dien38ht</h1>
+        <p class="subtitle">Bản HTML đơn file - tự lọc đúng theo lựa chọn sau khi upload</p>
+      </div>
+      <button id="btn-theme-toggle" class="btn-icon" title="Toggle dark mode" aria-label="Chế độ tối">🌙</button>
+    </header>
+
+    <div class="warning-box">
+      Tool chạy cục bộ trên trình duyệt. Không tự đăng nhập, không quét tài khoản, không gửi dữ liệu lên server.
+    </div>
+
+    <div class="workspace">
+      <aside class="filter-panel">
+        <div class="filter-header">
+          <h2>Bộ Lọc</h2>
+          <button id="btn-collapse-filters" class="btn-icon" title="Thu gọn bộ lọc" aria-label="Thu gọn">⌞</button>
+        </div>
+
+        <form id="filter-form" class="filter-form">
+          <fieldset class="filter-section filter-section--actions">
+            <legend>Hành Động Nhanh</legend>
+            <div class="button-group button-group--vertical">
+              <button type="button" id="btn-load-file" class="btn btn-primary">📁 Load file</button>
+              <button type="button" id="btn-paste-data" class="btn btn-primary">📋 Paste data</button>
+              <button type="button" id="btn-reset" class="btn btn-secondary">🔄 Reset</button>
+            </div>
+          </fieldset>
+
+          <fieldset class="filter-section">
+            <legend>Tướng & Skin</legend>
+
+            <div class="filter-item">
+              <label for="heroes">Tướng</label>
+              <input type="text" id="heroes" class="input-text" placeholder="VD: 1-120 hoặc 1,5,10" value="1-120">
+              <small>Hỗ trợ dạng range hoặc danh sách số.</small>
+            </div>
+
+            <div class="filter-item">
+              <label for="skins">Skin</label>
+              <input type="text" id="skins" class="input-text" placeholder="VD: 50-150">
+              <small>Range số lượng skin.</small>
+            </div>
+
+            <div class="filter-item filter-item--checkbox">
+              <label for="filter-sss" class="label-checkbox">
+                <input type="checkbox" id="filter-sss" class="checkbox">
+                <span>🗑️ Lọc SSS rác</span>
+              </label>
+
+              <div class="sss-skin-list" id="sss-skin-list">
+                <label class="label-checkbox"><input type="checkbox" class="sss-skin-checkbox" value="telannas" data-keywords="telannas|tel annas|than su f e e x1|than su fee x1|than su feex1" checked> TelAnnas Thần sứ F.E.E-X1</label>
+                <label class="label-checkbox"><input type="checkbox" class="sss-skin-checkbox" value="bijan" data-keywords="bijan|kinh thien long ky|bijan kinh thien long ky" checked> Bijan Kình thiên Long Kỵ</label>
+                <label class="label-checkbox"><input type="checkbox" class="sss-skin-checkbox" value="trieu van" data-keywords="trieu van|minh chung long de|trieu van minh chung long de" checked> Triệu Vân Minh Chung Long Đế</label>
+                <label class="label-checkbox"><input type="checkbox" class="sss-skin-checkbox" value="violet" data-keywords="violet|vong nguyet long co|violet vong nguyet long co" checked> Violet Vọng nguyệt Long Cơ</label>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="filter-section">
+            <legend>Thông Số Tài Khoản</legend>
+            <div class="filter-row">
+              <div class="filter-item">
+                <label for="level">Level tối thiểu</label>
+                <input type="number" id="level" class="input-number" placeholder="0" min="0">
+              </div>
+              <div class="filter-item">
+                <label for="so">Sò tối thiểu</label>
+                <input type="number" id="so" class="input-number" placeholder="0" min="0">
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-item">
+                <label for="qh">QH tối thiểu</label>
+                <input type="number" id="qh" class="input-number" placeholder="0" min="0">
+              </div>
+              <div class="filter-item">
+                <label for="times-recharged">Lần nạp tối thiểu</label>
+                <input type="number" id="times-recharged" class="input-number" placeholder="0" min="0">
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="filter-section">
+            <legend>Chất Lượng Skin</legend>
+
+            <div class="filter-row">
+              <div class="filter-item">
+                <label for="ss">SS tối thiểu</label>
+                <input type="number" id="ss" class="input-number" placeholder="0" min="0">
+              </div>
+              <div class="filter-item">
+                <label for="sss">SSS tối thiểu</label>
+                <input type="number" id="sss" class="input-number" placeholder="0" min="0">
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-item">
+                <label for="anime">ANIME tối thiểu</label>
+                <input type="number" id="anime" class="input-number" placeholder="0" min="0">
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="filter-section">
+            <legend>Trạng Thái</legend>
+
+            <div class="filter-item">
+              <label for="status">Tình Trạng</label>
+              <select id="status" class="input-select">
+                <option value="">-- Tất cả --</option>
+                <option value="Acc Trắng Lỗi Pass">Acc Trắng Lỗi Pass</option>
+                <option value="Acc Full">Acc Full</option>
+                <option value="Acc Dính Mỗi Số">Acc Dính Mỗi Số</option>
+                <option value="Acc Dính Email">Acc Dính Email</option>
+                <option value="Acc Trắng Thông Tin">Acc Trắng Thông Tin</option>
+              </select>
+            </div>
+
+            <div class="filter-item">
+              <label for="rank">Rank</label>
+              <select id="rank" class="input-select">
+                <option value="">-- Tất cả --</option>
+                <option value="Đồng">Đồng</option>
+                <option value="Bạc">Bạc</option>
+                <option value="Vàng">Vàng</option>
+                <option value="Bạch Kim">Bạch Kim</option>
+                <option value="Kim Cương">Kim Cương</option>
+                <option value="Tinh Anh">Tinh Anh</option>
+                <option value="Cao Thủ">Cao Thủ</option>
+                <option value="Đại Cao Thủ">Đại Cao Thủ</option>
+                <option value="Chiến Tướng">Chiến Tướng</option>
+                <option value="Chiến Thần">Chiến Thần</option>
+              </select>
+            </div>
+          </fieldset>
+
+          <fieldset class="filter-section">
+            <legend>Bảo Mật & Thông Tin</legend>
+
+            <div class="filter-row">
+              <div class="filter-item">
+                <label for="facebook">Facebook</label>
+                <select id="facebook" class="input-select">
+                  <option value="">-- Tất cả --</option>
+                  <option value="NO">FB:NO</option>
+                  <option value="DIE">FB:DIE</option>
+                  <option value="LIVE">FB:LIVE</option>
+                </select>
+                <small>Lọc theo trạng thái FB trong dữ liệu: NO / DIE / LIVE.</small>
+              </div>
+              <div class="filter-item">
+                <label for="ban">Ban</label>
+                <select id="ban" class="input-select">
+                  <option value="">-- Tất cả --</option>
+                  <option value="YES">Có</option>
+                  <option value="NO">Không</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-item">
+                <label for="email">Email</label>
+                <select id="email" class="input-select">
+                  <option value="">-- Tất cả --</option>
+                  <option value="YES">Có</option>
+                  <option value="NO">Không</option>
+                </select>
+              </div>
+              <div class="filter-item">
+                <label for="cmnd">CMND</label>
+                <select id="cmnd" class="input-select">
+                  <option value="">-- Tất cả --</option>
+                  <option value="YES">Có</option>
+                  <option value="NO">Không</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="filter-row">
+              <div class="filter-item">
+                <label for="authen">Authen</label>
+                <select id="authen" class="input-select">
+                  <option value="">-- Tất cả --</option>
+                  <option value="YES">Có</option>
+                  <option value="NO">Không</option>
+                </select>
+              </div>
+              <div class="filter-item">
+                <label for="sdt">SĐT</label>
+                <select id="sdt" class="input-select">
+                  <option value="">-- Tất cả --</option>
+                  <option value="YES">Có</option>
+                  <option value="NO">Không</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset class="filter-section">
+            <legend>Tìm Kiếm Nâng Cao</legend>
+
+            <div class="filter-item">
+              <label for="quick-search">Quick Search</label>
+              <input type="text" id="quick-search" class="input-text" placeholder="Nhập từ khóa...">
+            </div>
+
+            <div class="filter-item">
+              <label for="countries">Quốc Gia</label>
+              <input type="text" id="countries" class="input-text" placeholder="VD: VN, US, CN">
+              <small>Ngăn cách bằng dấu phẩy.</small>
+            </div>
+          </fieldset>
+        </form>
+      </aside>
+
+      <main class="center-panel">
+        <div class="data-section">
+          <h2>Dữ Liệu Đầu Vào</h2>
+
+          <div class="data-info" id="data-stats" aria-live="polite" aria-atomic="true">
+            <span>Chưa có dữ liệu</span>
+          </div>
+
+          <label for="text-input" class="sr-only">Input data</label>
+          <textarea id="text-input" class="text-area text-area--input" readonly placeholder="Dữ liệu sẽ hiển thị ở đây sau khi load hoặc paste"></textarea>
+        </div>
+
+        <div class="action-buttons">
+          <button id="btn-run" class="btn btn-success" disabled>▶️ Run filters</button>
+          <button id="btn-export-full" class="btn btn-info" disabled>📄 Xuất nguyên gốc</button>
+          <button id="btn-export-colon" class="btn btn-info" disabled>👤 Xuất user:pass</button>
+          <button id="btn-export-pipe" class="btn btn-info" disabled>👤 Xuất user|pass</button>
+          <button id="btn-clear-output" class="btn btn-secondary">🗑️ Clear</button>
+        </div>
+      </main>
+
+      <aside class="output-panel">
+        <div class="output-section">
+          <h2>Kết Quả</h2>
+          <label for="text-output" class="sr-only">Kết quả sau khi lọc</label>
+          <textarea id="text-output" class="text-area text-area--output" readonly placeholder="Kết quả lọc sẽ hiển thị ở đây"></textarea>
+        </div>
+
+        <div class="log-section">
+          <h2>Nhật Ký</h2>
+          <div id="text-log" class="log-area" role="log" aria-live="polite" aria-label="Nhật ký hoạt động"></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <dialog id="paste-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Dán Dữ Liệu</h2>
+        <button type="button" id="btn-close-modal" class="btn-icon" aria-label="Đóng">✕</button>
+      </div>
+
+      <p class="modal-description">Dán dữ liệu vào ô bên dưới, mỗi record một dòng.</p>
+      <textarea id="paste-textarea" class="text-area paste-area" placeholder="Dán dữ liệu tại đây..."></textarea>
+
+      <div class="modal-footer">
+        <button type="button" id="btn-paste-done" class="btn btn-primary">✓ Xong</button>
+        <button type="button" id="btn-paste-cancel" class="btn btn-secondary">✕ Hủy</button>
+      </div>
+    </div>
+  </dialog>
+
+  <input type="file" id="file-input" multiple accept=".txt,.csv,.json" class="hidden-file-input" aria-label="Chọn file">
+
+  <script>
+    'use strict';
+
+    const $ = (id) => document.getElementById(id);
+
+    const els = {
+      loadFile: $('btn-load-file'),
+      fileInput: $('file-input'),
+      pasteBtn: $('btn-paste-data'),
+      pasteModal: $('paste-modal'),
+      pasteArea: $('paste-textarea'),
+      pasteDone: $('btn-paste-done'),
+      pasteCancel: $('btn-paste-cancel'),
+      closeModal: $('btn-close-modal'),
+      textInput: $('text-input'),
+      textOutput: $('text-output'),
+      log: $('text-log'),
+      stats: $('data-stats'),
+      run: $('btn-run'),
+      reset: $('btn-reset'),
+      clear: $('btn-clear-output'),
+      exportFull: $('btn-export-full'),
+      exportColon: $('btn-export-colon'),
+      exportPipe: $('btn-export-pipe'),
+      form: $('filter-form'),
+      theme: $('btn-theme-toggle'),
+      collapse: $('btn-collapse-filters'),
+    };
+
+    let rawLines = [];
+    let filteredLines = [];
+
+    // ========== UTILITIES ==========
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      }[m]));
+    }
+
+    function log(msg, type = 'info') {
+      const time = new Date().toLocaleTimeString('vi-VN');
+      els.log.insertAdjacentHTML(
+        'afterbegin',
+        `<div class="log-${type}">[${time}] ${escapeHtml(msg)}</div>`
+      );
+    }
+
+    function normalizeLines(text) {
+      return String(text)
+        .replace(/\r/g, '')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean);
+    }
+
+    // ========== NORMALIZE TEXT FOR SEARCH ==========
+    function normalizeSearchText(value) {
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+    }
+
+    // ========== FIELD EXTRACTION LOGIC ==========
+    const FIELD_MAP = {
+      'HERO': ['HERO', 'HEROES', 'TƯỚNG', 'TUONG', 'CHAR', 'CHAMPION'],
+      'SKIN': ['SKIN', 'SKINS'],
+      'LEVEL': ['LEVEL', 'LV', 'LEV'],
+      'SO': ['SÒ', 'SO', 'SHELL', 'SOCSTONE'],
+      'QH': ['QH', 'QUÂN HUY', 'QUAN HUY', 'QUY'],
+      'TIMES_RECHARGED': ['LẦN NẠP', 'LAN NAP', 'NAP', 'RECHARGE', 'TIMES RECHARGED', 'RECHARGED'],
+      'SS': ['SS'],
+      'SSS': ['SSS'],
+      'ANIME': ['ANIME', 'ANIMES'],
+      'FB': ['FB', 'FACEBOOK'],
+      'BAN': ['BAN', 'BANNED'],
+      'EMAIL': ['EMAIL', 'MAIL'],
+      'CMND': ['CMND', 'CCCD', 'ID CARD', 'IDCARD'],
+      'AUTHEN': ['AUTHEN', 'AUTH', 'AUTHENTICATOR', '2FA'],
+      'SDT': ['SĐT', 'SDT', 'PHONE', 'SỐ ĐIỆN THOẠI', 'SO DIEN THOAI', 'PHONENUMBER'],
+      'COUNTRY': ['QUỐC GIA', 'QUOC GIA', 'COUNTRY', 'QG', 'NATION'],
+      'STATUS': ['STATUS', 'TÌNH TRẠNG', 'TINH TRANG', 'STATE'],
+      'RANK': ['RANK', 'HẠNG', 'HANG', 'RANKING']
+    };
+
+    /**
+     * Trích xuất giá trị text của field từ dòng
+     * Hỗ trợ format: FIELD:value | FIELD:value hoặc FIELD : value | FIELD : value
+     */
+    function extractFieldValue(line, fieldKey) {
+      const aliases = FIELD_MAP[fieldKey] || [fieldKey];
+      const text = String(line || '');
+
+      // Tách các segment bằng dấu |
+      const segments = text.split('|');
+
+      for (const segment of segments) {
+        const colonIdx = segment.indexOf(':');
+        if (colonIdx === -1) continue;
+
+        const fieldName = segment.substring(0, colonIdx).trim();
+        const fieldValue = segment.substring(colonIdx + 1).trim();
+
+        // Chuẩn hóa tên field để so sánh
+        const normalizedField = normalizeSearchText(fieldName);
+
+        // Kiểm tra xem field name có khớp với alias nào không
+        for (const alias of aliases) {
+          const normalizedAlias = normalizeSearchText(alias);
+          if (normalizedField === normalizedAlias) {
+            return fieldValue;
+          }
+        }
+      }
+
+      return '';
+    }
+
+    /**
+     * Trích xuất số từ giá trị text
+     */
+    function extractNumber(line, fieldKey) {
+      const text = extractFieldValue(line, fieldKey);
+      if (!text) return null;
+
+      const match = text.match(/-?\d+/);
+      if (match) {
+        const num = Number(match[0]);
+        return Number.isFinite(num) ? num : null;
+      }
+
+      return null;
+    }
+
+    /**
+     * Trích xuất trạng thái Yes/No
+     */
+    function extractYesNo(line, fieldKey) {
+      const text = extractFieldValue(line, fieldKey);
+      if (!text) return null;
+
+      const normalized = normalizeSearchText(text);
+
+      if (/^(yes|co|1|true|have)$/.test(normalized)) return 'YES';
+      if (/^(no|khong|0|false|dont|none)$/.test(normalized)) return 'NO';
+
+      return text.toUpperCase();
+    }
+
+    /**
+     * Trích xuất trạng thái Facebook
+     */
+    function extractFacebookStatus(line) {
+      const text = extractFieldValue(line, 'FB');
+      if (!text) return 'NO';
+
+      const normalized = normalizeSearchText(text);
+
+      if (/\blive\b|\balive\b|\bactive\b|\bsong\b/.test(normalized)) return 'LIVE';
+      if (/\bdie\b|\bdead\b|\block\b|\bcheckpoint\b|\bmat\b|\bchet\b/.test(normalized)) return 'DIE';
+      if (/\bno\b|\bkhong\b|\bnone\b|\bnull\b|\bkhongtco\b/.test(normalized)) return 'NO';
+
+      return text.toUpperCase();
+    }
+
+    // ========== RANGE PARSING ==========
+    function parseRange(value) {
+      value = String(value || '').trim();
+      if (!value) return null;
+
+      // Format: 1-120
+      if (/^\d+\s*-\s*\d+$/.test(value)) {
+        const [min, max] = value.split('-').map(v => Number(v.trim()));
+        return { type: 'range', min: Math.min(min, max), max: Math.max(min, max) };
+      }
+
+      // Format: 1,5,10
+      if (/^\d+(\s*,\s*\d+)*$/.test(value)) {
+        return {
+          type: 'list',
+          values: value.split(',').map(v => Number(v.trim()))
+        };
+      }
+
+      return { type: 'invalid' };
+    }
+
+    function matchRange(num, rule) {
+      if (!rule) return true;
+      if (rule.type === 'invalid') return false;
+      if (!Number.isFinite(num)) return false;
+
+      if (rule.type === 'range') return num >= rule.min && num <= rule.max;
+      if (rule.type === 'list') return rule.values.includes(num);
+
+      return true;
+    }
+
+    // ========== SSS SKIN FILTER ==========
+    function extractSSSSkinList(line) {
+      const text = String(line || '');
+
+      // Cố gắng lấy từ format: SSS : N [skin1, skin2, ...]
+      const bracketMatch = text.match(/(?:^|\|)\s*SSS\s*:\s*\d+\s*\[([^\]]*)\]/i);
+      if (bracketMatch) return bracketMatch[1];
+
+      // Fallback: lấy toàn bộ phần SSS
+      const sssMatch = text.match(/(?:^|\|)\s*SSS\s*:\s*(.+?)(?:\||$)/i);
+      if (sssMatch) return sssMatch[1];
+
+      return '';
+    }
+
+    function hasBlockedSSSSkin(line, blockedGroups) {
+      const skinList = extractSSSSkinList(line);
+      if (!skinList) return false;
+
+      const normalized = normalizeSearchText(skinList);
+
+      return blockedGroups.some(keywordGroup => {
+        return keywordGroup.some(keyword => {
+          const normalizedKeyword = normalizeSearchText(keyword);
+          return normalized.includes(normalizedKeyword);
+        });
+      });
+    }
+
+    // ========== GET ALL FILTERS ==========
+    function getFilters() {
+      return {
+        heroes: parseRange($('heroes').value),
+        skins: parseRange($('skins').value),
+        level: $('level').value ? Number($('level').value) : null,
+        so: $('so').value ? Number($('so').value) : null,
+        qh: $('qh').value ? Number($('qh').value) : null,
+        timesRecharged: $('times-recharged').value ? Number($('times-recharged').value) : null,
+        ss: $('ss').value ? Number($('ss').value) : null,
+        sss: $('sss').value ? Number($('sss').value) : null,
+        anime: $('anime').value ? Number($('anime').value) : null,
+        status: $('status').value.trim(),
+        rank: $('rank').value.trim(),
+        facebook: $('facebook').value.trim(),
+        ban: $('ban').value.trim(),
+        email: $('email').value.trim(),
+        cmnd: $('cmnd').value.trim(),
+        authen: $('authen').value.trim(),
+        sdt: $('sdt').value.trim(),
+        quick: $('quick-search').value.trim().toLowerCase(),
+        countries: $('countries').value
+          .split(',')
+          .map(v => v.trim().toUpperCase())
+          .filter(Boolean),
+        filterSSS: $('filter-sss').checked,
+        blockedSSS: [...document.querySelectorAll('.sss-skin-checkbox:checked')]
+          .map(cb => (cb.dataset.keywords || cb.value)
+            .split('|')
+            .map(normalizeSearchText)
+            .filter(Boolean)
+          )
+      };
+    }
+
+    function hasActiveFilters() {
+      const f = getFilters();
+      return Boolean(
+        f.heroes || f.skins ||
+        f.level !== null || f.so !== null || f.qh !== null || f.timesRecharged !== null ||
+        f.ss !== null || f.sss !== null || f.anime !== null ||
+        f.status || f.rank || f.facebook || f.ban || f.email || f.cmnd || f.authen || f.sdt ||
+        f.quick || f.countries.length || f.filterSSS
+      );
+    }
+
+    // ========== LINE MATCHING LOGIC ==========
+    function lineMatches(line, f) {
+      const normalizedLine = normalizeSearchText(line);
+
+      // Quick Search
+      if (f.quick && !normalizedLine.includes(normalizeSearchText(f.quick))) {
+        return false;
+      }
+
+      // Hero Range
+      if (f.heroes) {
+        const heroNum = extractNumber(line, 'HERO');
+        if (!matchRange(heroNum, f.heroes)) return false;
+      }
+
+      // Skin Range
+      if (f.skins) {
+        const skinNum = extractNumber(line, 'SKIN');
+        if (!matchRange(skinNum, f.skins)) return false;
+      }
+
+      // Level Min
+      if (f.level !== null) {
+        const level = extractNumber(line, 'LEVEL');
+        if (level === null || level < f.level) return false;
+      }
+
+      // So Min
+      if (f.so !== null) {
+        const so = extractNumber(line, 'SO');
+        if (so === null || so < f.so) return false;
+      }
+
+      // QH Min
+      if (f.qh !== null) {
+        const qh = extractNumber(line, 'QH');
+        if (qh === null || qh < f.qh) return false;
+      }
+
+      // Times Recharged Min
+      if (f.timesRecharged !== null) {
+        const times = extractNumber(line, 'TIMES_RECHARGED');
+        if (times === null || times < f.timesRecharged) return false;
+      }
+
+      // SS Min
+      if (f.ss !== null) {
+        const ss = extractNumber(line, 'SS');
+        if (ss === null || ss < f.ss) return false;
+      }
+
+      // SSS Min
+      if (f.sss !== null) {
+        const sss = extractNumber(line, 'SSS');
+        if (sss === null || sss < f.sss) return false;
+      }
+
+      // ANIME Min
+      if (f.anime !== null) {
+        const anime = extractNumber(line, 'ANIME');
+        if (anime === null || anime < f.anime) return false;
+      }
+
+      // Status
+      if (f.status) {
+        const status = extractFieldValue(line, 'STATUS');
+        if (!normalizeSearchText(status).includes(normalizeSearchText(f.status))) {
+          return false;
+        }
+      }
+
+      // Rank
+      if (f.rank) {
+        const rank = extractFieldValue(line, 'RANK');
+        if (!normalizeSearchText(rank).includes(normalizeSearchText(f.rank))) {
+          return false;
+        }
+      }
+
+      // Facebook
+      if (f.facebook) {
+        const fbStatus = extractFacebookStatus(line);
+        if (fbStatus !== f.facebook) return false;
+      }
+
+      // Ban
+      if (f.ban) {
+        const banStatus = extractYesNo(line, 'BAN');
+        if (banStatus !== f.ban) return false;
+      }
+
+      // Email
+      if (f.email) {
+        const emailStatus = extractYesNo(line, 'EMAIL');
+        if (emailStatus !== f.email) return false;
+      }
+
+      // CMND
+      if (f.cmnd) {
+        const cmndStatus = extractYesNo(line, 'CMND');
+        if (cmndStatus !== f.cmnd) return false;
+      }
+
+      // Authen
+      if (f.authen) {
+        const authenStatus = extractYesNo(line, 'AUTHEN');
+        if (authenStatus !== f.authen) return false;
+      }
+
+      // SDT
+      if (f.sdt) {
+        const sdtStatus = extractYesNo(line, 'SDT');
+        if (sdtStatus !== f.sdt) return false;
+      }
+
+      // Countries
+      if (f.countries.length) {
+        const country = normalizeSearchText(extractFieldValue(line, 'COUNTRY')).toUpperCase();
+        if (!f.countries.includes(country)) return false;
+      }
+
+      // SSS Skin Filter
+      if (f.filterSSS && hasBlockedSSSSkin(line, f.blockedSSS)) {
+        return false;
+      }
+
+      return true;
+    }
+
+    // ========== RUN FILTERS ==========
+    function runFilters(options = {}) {
+      const { silent = false } = options;
+
+      if (!rawLines.length) {
+        if (!silent) log('Chưa có dữ liệu để lọc.', 'error');
+        return;
+      }
+
+      const f = getFilters();
+
+      if (f.heroes?.type === 'invalid' || f.skins?.type === 'invalid') {
+        if (!silent) log('Range tướng/skin không hợp lệ. Dùng dạng 1-120 hoặc 1,5,10.', 'error');
+        return;
+      }
+
+      filteredLines = rawLines.filter(line => lineMatches(line, f));
+
+      els.textOutput.value = filteredLines.join('\n');
+      setExportButtonsEnabled(filteredLines.length > 0);
+      els.stats.innerHTML = `<span>${rawLines.length} dòng dữ liệu • ${filteredLines.length} dòng khớp filter</span>`;
+
+      if (!silent) {
+        log(`Lọc xong: ${filteredLines.length}/${rawLines.length} dòng phù hợp.`);
+      }
+    }
+
+    // ========== AUTO FILTER SCHEDULER ==========
+    function scheduleAutoFilter() {
+      if (!rawLines.length) return;
+      window.clearTimeout(scheduleAutoFilter.timer);
+      scheduleAutoFilter.timer = window.setTimeout(() => {
+        runFilters({ silent: true });
+      }, 250);
+    }
+
+    // ========== EXPORT FUNCTIONS ==========
+    function getCredentialPair(line) {
+      const firstPart = String(line || '').split('|')[0].trim();
+      if (!firstPart) return null;
+
+      // Format: user:pass
+      if (firstPart.includes(':')) {
+        const [user, ...passParts] = firstPart.split(':');
+        const pass = passParts.join(':');
+        if (user && pass) return { user: user.trim(), pass: pass.trim() };
+      }
+
+      // Format: user | pass (2 phần đầu tiên)
+      const pipeParts = String(line || '').split('|').map(part => part.trim());
+      if (pipeParts.length >= 2 && pipeParts[0] && pipeParts[1]) {
+        const secondLooksLikeField = /^[A-ZÀ-Ỹ0-9 _-]+\s*:/i.test(pipeParts[1]);
+        if (!secondLooksLikeField) {
+          return { user: pipeParts[0], pass: pipeParts[1] };
+        }
+      }
+
+      return null;
+    }
+
+    function downloadTxt(filename, lines) {
+      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function setExportButtonsEnabled(enabled) {
+      els.exportFull.disabled = !enabled;
+      els.exportColon.disabled = !enabled;
+      els.exportPipe.disabled = !enabled;
+    }
+
+    function updateData(text) {
+      rawLines = normalizeLines(text);
+      filteredLines = [];
+
+      els.textInput.value = rawLines.join('\n');
+      els.textOutput.value = '';
+
+      const hasData = rawLines.length > 0;
+      els.run.disabled = !hasData;
+      setExportButtonsEnabled(false);
+
+      els.stats.innerHTML = `<span>${rawLines.length} dòng dữ liệu</span>`;
+      log(`Đã nạp ${rawLines.length} dòng dữ liệu.`);
+
+      if (hasData && hasActiveFilters()) {
+        runFilters({ silent: true });
+      }
+    }
+
+    // ========== EVENT LISTENERS ==========
+    els.loadFile.addEventListener('click', () => els.fileInput.click());
+
+    els.fileInput.addEventListener('change', async () => {
+      const files = [...els.fileInput.files];
+      if (!files.length) return;
+
+      const contents = await Promise.all(files.map(file => file.text()));
+      updateData(contents.join('\n'));
+
+      els.fileInput.value = '';
+    });
+
+    els.pasteBtn.addEventListener('click', () => {
+      els.pasteArea.value = '';
+      if (typeof els.pasteModal.showModal === 'function') {
+        els.pasteModal.showModal();
+      } else {
+        alert('Trình duyệt của bạn chưa hỗ trợ dialog. Hãy dùng Chrome/Edge bản mới.');
+      }
+    });
+
+    els.pasteDone.addEventListener('click', () => {
+      updateData(els.pasteArea.value);
+      els.pasteModal.close();
+    });
+
+    els.pasteCancel.addEventListener('click', () => els.pasteModal.close());
+    els.closeModal.addEventListener('click', () => els.pasteModal.close());
+    els.run.addEventListener('click', () => runFilters());
+
+    els.form.addEventListener('input', scheduleAutoFilter);
+    els.form.addEventListener('change', scheduleAutoFilter);
+
+    els.clear.addEventListener('click', () => {
+      els.textOutput.value = '';
+      filteredLines = [];
+      setExportButtonsEnabled(false);
+      log('Đã xóa kết quả.');
+    });
+
+    els.exportFull.addEventListener('click', () => {
+      if (!filteredLines.length) {
+        log('Không có dữ liệu để xuất.', 'error');
+        return;
+      }
+      downloadTxt(`ket-qua-loc-${Date.now()}.txt`, filteredLines);
+      log(`Đã xuất ${filteredLines.length} dòng (nguyên gốc).`);
+    });
+
+    els.exportColon.addEventListener('click', () => {
+      const pairs = filteredLines
+        .map(getCredentialPair)
+        .filter(Boolean)
+        .map(p => `${p.user}:${p.pass}`);
+
+      if (!pairs.length) {
+        log('Không tìm thấy cặp user:pass trong dữ liệu.', 'error');
+        return;
+      }
+
+      downloadTxt(`user-pass-colon-${Date.now()}.txt`, pairs);
+      log(`Đã xuất ${pairs.length} dòng (user:pass).`);
+    });
+
+    els.exportPipe.addEventListener('click', () => {
+      const pairs = filteredLines
+        .map(getCredentialPair)
+        .filter(Boolean)
+        .map(p => `${p.user}|${p.pass}`);
+
+      if (!pairs.length) {
+        log('Không tìm thấy cặp user|pass trong dữ liệu.', 'error');
+        return;
+      }
+
+      downloadTxt(`user-pass-pipe-${Date.now()}.txt`, pairs);
+      log(`Đã xuất ${pairs.length} dòng (user|pass).`);
+    });
+
+    els.reset.addEventListener('click', () => {
+      els.form.reset();
+      $('heroes').value = '1-120';
+      els.textOutput.value = '';
+      filteredLines = [];
+      setExportButtonsEnabled(false);
+      log('Đã reset bộ lọc.');
+    });
+
+    els.theme.addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      els.theme.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+    });
+
+    els.collapse.addEventListener('click', () => {
+      document.querySelector('.filter-panel')?.classList.toggle('is-collapsed');
+    });
+  </script>
+</body>
+</html>
