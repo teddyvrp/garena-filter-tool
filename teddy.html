@@ -782,7 +782,8 @@
     let rawLines = [];
     let filteredLines = [];
 
-    // ========== UTILITIES ==========
+    // ============ UTILITY FUNCTIONS ============
+
     function escapeHtml(str) {
       return String(str).replace(/[&<>"']/g, (m) => ({
         '&': '&amp;',
@@ -809,7 +810,6 @@
         .filter(Boolean);
     }
 
-    // ========== NORMALIZE TEXT FOR SEARCH ==========
     function normalizeSearchText(value) {
       return String(value || '')
         .normalize('NFD')
@@ -817,42 +817,47 @@
         .replace(/đ/g, 'd')
         .replace(/Đ/g, 'D')
         .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .trim()
-        .replace(/\s+/g, ' ');
+        .trim();
     }
 
-    // ========== FIELD EXTRACTION LOGIC ==========
-    const FIELD_MAP = {
-      'HERO': ['HERO', 'HEROES', 'TƯỚNG', 'TUONG', 'CHAR', 'CHAMPION'],
+    function escapeRegex(value) {
+      return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // ============ FIELD ALIASES ============
+
+    const FIELD_ALIASES = {
+      'HERO': ['HERO', 'HEROES', 'TƯỚNG', 'TUONG'],
       'SKIN': ['SKIN', 'SKINS'],
-      'LEVEL': ['LEVEL', 'LV', 'LEV'],
-      'SO': ['SÒ', 'SO', 'SHELL', 'SOCSTONE'],
-      'QH': ['QH', 'QUÂN HUY', 'QUAN HUY', 'QUY'],
-      'TIMES_RECHARGED': ['LẦN NẠP', 'LAN NAP', 'NAP', 'RECHARGE', 'TIMES RECHARGED', 'RECHARGED'],
+      'LEVEL': ['LEVEL', 'LV'],
+      'SÒ': ['SÒ', 'SO', 'S0', 'SHELL'],
+      'QH': ['QH', 'QUAN HUY', 'QUÂN HUY'],
+      'LAN NAP': ['LẦN NẠP', 'LAN NAP', 'NAP', 'RECHARGE', 'TIMES_RECHARGED'],
       'SS': ['SS'],
       'SSS': ['SSS'],
-      'ANIME': ['ANIME', 'ANIMES'],
+      'ANIME': ['ANIME'],
       'FB': ['FB', 'FACEBOOK'],
       'BAN': ['BAN', 'BANNED'],
       'EMAIL': ['EMAIL', 'MAIL'],
-      'CMND': ['CMND', 'CCCD', 'ID CARD', 'IDCARD'],
+      'CMND': ['CMND', 'CCCD', 'ID_CARD'],
       'AUTHEN': ['AUTHEN', 'AUTH', 'AUTHENTICATOR', '2FA'],
-      'SDT': ['SĐT', 'SDT', 'PHONE', 'SỐ ĐIỆN THOẠI', 'SO DIEN THOAI', 'PHONENUMBER'],
-      'COUNTRY': ['QUỐC GIA', 'QUOC GIA', 'COUNTRY', 'QG', 'NATION'],
-      'STATUS': ['STATUS', 'TÌNH TRẠNG', 'TINH TRANG', 'STATE'],
-      'RANK': ['RANK', 'HẠNG', 'HANG', 'RANKING']
+      'SDT': ['SĐT', 'SDT', 'PHONE', 'SO_DIEN_THOAI'],
+      'QUOC_GIA': ['QUỐC GIA', 'QUOC GIA', 'COUNTRY', 'QG'],
+      'STATUS': ['STATUS', 'TRANG_THAI', 'TINH_TRANG'],
+      'RANK': ['RANK', 'RANK_GAME']
     };
 
-    /**
-     * Trích xuất giá trị text của field từ dòng
-     * Hỗ trợ format: FIELD:value | FIELD:value hoặc FIELD : value | FIELD : value
-     */
-    function extractFieldValue(line, fieldKey) {
-      const aliases = FIELD_MAP[fieldKey] || [fieldKey];
-      const text = String(line || '');
+    function getAliases(key) {
+      return FIELD_ALIASES[key] || [key];
+    }
 
-      // Tách các segment bằng dấu |
+    // ============ EXTRACT FUNCTIONS ============
+
+    function extractText(line, key) {
+      const text = String(line || '');
+      const aliases = getAliases(key);
+
+      // Parse format: FIELD:value | FIELD:value
       const segments = text.split('|');
 
       for (const segment of segments) {
@@ -862,13 +867,8 @@
         const fieldName = segment.substring(0, colonIdx).trim();
         const fieldValue = segment.substring(colonIdx + 1).trim();
 
-        // Chuẩn hóa tên field để so sánh
-        const normalizedField = normalizeSearchText(fieldName);
-
-        // Kiểm tra xem field name có khớp với alias nào không
         for (const alias of aliases) {
-          const normalizedAlias = normalizeSearchText(alias);
-          if (normalizedField === normalizedAlias) {
+          if (normalizeSearchText(fieldName) === normalizeSearchText(alias)) {
             return fieldValue;
           }
         }
@@ -877,54 +877,66 @@
       return '';
     }
 
-    /**
-     * Trích xuất số từ giá trị text
-     */
-    function extractNumber(line, fieldKey) {
-      const text = extractFieldValue(line, fieldKey);
-      if (!text) return null;
+    function extractNumber(line, key) {
+      const raw = extractText(line, key);
+      if (!raw) return null;
 
-      const match = text.match(/-?\d+/);
-      if (match) {
-        const num = Number(match[0]);
-        return Number.isFinite(num) ? num : null;
-      }
-
-      return null;
+      const match = raw.match(/-?\d+/);
+      return match ? Number(match[0]) : null;
     }
 
-    /**
-     * Trích xuất trạng thái Yes/No
-     */
-    function extractYesNo(line, fieldKey) {
-      const text = extractFieldValue(line, fieldKey);
-      if (!text) return null;
+    function extractYesNo(line, key) {
+      const raw = normalizeSearchText(extractText(line, key));
+      if (!raw) return 'NO';
 
-      const normalized = normalizeSearchText(text);
+      if (/^(yes|co|yes|1|true|have|yes|ok)$/.test(raw)) return 'YES';
+      if (/^(no|khong|0|false|dont|no)$/.test(raw)) return 'NO';
 
-      if (/^(yes|co|1|true|have)$/.test(normalized)) return 'YES';
-      if (/^(no|khong|0|false|dont|none)$/.test(normalized)) return 'NO';
-
-      return text.toUpperCase();
+      return raw.toUpperCase();
     }
 
-    /**
-     * Trích xuất trạng thái Facebook
-     */
     function extractFacebookStatus(line) {
-      const text = extractFieldValue(line, 'FB');
-      if (!text) return 'NO';
+      const raw = normalizeSearchText(extractText(line, 'FB'));
 
-      const normalized = normalizeSearchText(text);
+      if (!raw) return 'NO';
 
-      if (/\blive\b|\balive\b|\bactive\b|\bsong\b/.test(normalized)) return 'LIVE';
-      if (/\bdie\b|\bdead\b|\block\b|\bcheckpoint\b|\bmat\b|\bchet\b/.test(normalized)) return 'DIE';
-      if (/\bno\b|\bkhong\b|\bnone\b|\bnull\b|\bkhongtco\b/.test(normalized)) return 'NO';
+      if (/live|alive|active|song|song/.test(raw)) return 'LIVE';
+      if (/die|dead|lock|checkpoint|mat|chet/.test(raw)) return 'DIE';
+      if (/no|khong|none|null|ko/.test(raw)) return 'NO';
 
-      return text.toUpperCase();
+      return raw.toUpperCase();
     }
 
-    // ========== RANGE PARSING ==========
+    function extractSSSSkinText(line) {
+      const text = String(line || '');
+
+      // Format: SSS : 3 [skin1, skin2]
+      const bracketMatch = text.match(/SSS\s*:\s*\d+\s*\[([^\]]*)\]/i);
+      if (bracketMatch) return bracketMatch[1];
+
+      // Format: SSS : 3 skin1, skin2
+      const segmentMatch = text.match(/SSS\s*:\s*\d+\s*([^|]*)/i);
+      if (segmentMatch) return segmentMatch[1];
+
+      return '';
+    }
+
+    function hasBlockedSSSSkin(line, blockedGroups) {
+      const sssSkinText = extractSSSSkinText(line);
+      if (!sssSkinText) return false;
+
+      const normalized = normalizeSearchText(sssSkinText);
+
+      return blockedGroups.some(group => {
+        return group.some(keyword => {
+          const key = normalizeSearchText(keyword);
+          return key && normalized.includes(key);
+        });
+      });
+    }
+
+    // ============ RANGE PARSING ============
+
     function parseRange(value) {
       value = String(value || '').trim();
       if (!value) return null;
@@ -957,47 +969,31 @@
       return true;
     }
 
-    // ========== SSS SKIN FILTER ==========
-    function extractSSSSkinList(line) {
-      const text = String(line || '');
+    // ============ FILTER LOGIC ============
 
-      // Cố gắng lấy từ format: SSS : N [skin1, skin2, ...]
-      const bracketMatch = text.match(/(?:^|\|)\s*SSS\s*:\s*\d+\s*\[([^\]]*)\]/i);
-      if (bracketMatch) return bracketMatch[1];
+    function hasActiveFilters() {
+      const f = getFilters();
 
-      // Fallback: lấy toàn bộ phần SSS
-      const sssMatch = text.match(/(?:^|\|)\s*SSS\s*:\s*(.+?)(?:\||$)/i);
-      if (sssMatch) return sssMatch[1];
-
-      return '';
+      return Boolean(
+        f.heroes || f.skins ||
+        f.level !== null || f.so !== null || f.qh !== null || f.timesRecharged !== null ||
+        f.ss !== null || f.sss !== null || f.anime !== null ||
+        f.status || f.rank || f.facebook || f.quick || f.countries.length || f.filterSSS ||
+        f.ban || f.email || f.cmnd || f.authen || f.sdt
+      );
     }
 
-    function hasBlockedSSSSkin(line, blockedGroups) {
-      const skinList = extractSSSSkinList(line);
-      if (!skinList) return false;
-
-      const normalized = normalizeSearchText(skinList);
-
-      return blockedGroups.some(keywordGroup => {
-        return keywordGroup.some(keyword => {
-          const normalizedKeyword = normalizeSearchText(keyword);
-          return normalized.includes(normalizedKeyword);
-        });
-      });
-    }
-
-    // ========== GET ALL FILTERS ==========
     function getFilters() {
       return {
         heroes: parseRange($('heroes').value),
         skins: parseRange($('skins').value),
-        level: $('level').value ? Number($('level').value) : null,
-        so: $('so').value ? Number($('so').value) : null,
-        qh: $('qh').value ? Number($('qh').value) : null,
-        timesRecharged: $('times-recharged').value ? Number($('times-recharged').value) : null,
-        ss: $('ss').value ? Number($('ss').value) : null,
-        sss: $('sss').value ? Number($('sss').value) : null,
-        anime: $('anime').value ? Number($('anime').value) : null,
+        level: Number($('level').value) || null,
+        so: Number($('so').value) || null,
+        qh: Number($('qh').value) || null,
+        timesRecharged: Number($('times-recharged').value) || null,
+        ss: Number($('ss').value) || null,
+        sss: Number($('sss').value) || null,
+        anime: Number($('anime').value) || null,
         status: $('status').value.trim(),
         rank: $('rank').value.trim(),
         facebook: $('facebook').value.trim(),
@@ -1006,10 +1002,10 @@
         cmnd: $('cmnd').value.trim(),
         authen: $('authen').value.trim(),
         sdt: $('sdt').value.trim(),
-        quick: $('quick-search').value.trim().toLowerCase(),
+        quick: normalizeSearchText($('quick-search').value),
         countries: $('countries').value
           .split(',')
-          .map(v => v.trim().toUpperCase())
+          .map(v => normalizeSearchText(v))
           .filter(Boolean),
         filterSSS: $('filter-sss').checked,
         blockedSSS: [...document.querySelectorAll('.sss-skin-checkbox:checked')]
@@ -1021,147 +1017,78 @@
       };
     }
 
-    function hasActiveFilters() {
-      const f = getFilters();
-      return Boolean(
-        f.heroes || f.skins ||
-        f.level !== null || f.so !== null || f.qh !== null || f.timesRecharged !== null ||
-        f.ss !== null || f.sss !== null || f.anime !== null ||
-        f.status || f.rank || f.facebook || f.ban || f.email || f.cmnd || f.authen || f.sdt ||
-        f.quick || f.countries.length || f.filterSSS
-      );
+    function passMin(line, key, min) {
+      if (min === null) return true;
+      const value = extractNumber(line, key);
+      return value !== null && value >= min;
     }
 
-    // ========== LINE MATCHING LOGIC ==========
+    function matchSelect(line, key, selectedValue) {
+      if (!selectedValue) return true;
+
+      const actual = extractYesNo(line, key);
+      return actual === selectedValue;
+    }
+
     function lineMatches(line, f) {
       const normalizedLine = normalizeSearchText(line);
 
-      // Quick Search
-      if (f.quick && !normalizedLine.includes(normalizeSearchText(f.quick))) {
-        return false;
-      }
-
-      // Hero Range
-      if (f.heroes) {
-        const heroNum = extractNumber(line, 'HERO');
-        if (!matchRange(heroNum, f.heroes)) return false;
-      }
-
-      // Skin Range
-      if (f.skins) {
-        const skinNum = extractNumber(line, 'SKIN');
-        if (!matchRange(skinNum, f.skins)) return false;
-      }
-
-      // Level Min
-      if (f.level !== null) {
-        const level = extractNumber(line, 'LEVEL');
-        if (level === null || level < f.level) return false;
-      }
-
-      // So Min
-      if (f.so !== null) {
-        const so = extractNumber(line, 'SO');
-        if (so === null || so < f.so) return false;
-      }
-
-      // QH Min
-      if (f.qh !== null) {
-        const qh = extractNumber(line, 'QH');
-        if (qh === null || qh < f.qh) return false;
-      }
-
-      // Times Recharged Min
-      if (f.timesRecharged !== null) {
-        const times = extractNumber(line, 'TIMES_RECHARGED');
-        if (times === null || times < f.timesRecharged) return false;
-      }
-
-      // SS Min
-      if (f.ss !== null) {
-        const ss = extractNumber(line, 'SS');
-        if (ss === null || ss < f.ss) return false;
-      }
-
-      // SSS Min
-      if (f.sss !== null) {
-        const sss = extractNumber(line, 'SSS');
-        if (sss === null || sss < f.sss) return false;
-      }
-
-      // ANIME Min
-      if (f.anime !== null) {
-        const anime = extractNumber(line, 'ANIME');
-        if (anime === null || anime < f.anime) return false;
-      }
-
-      // Status
-      if (f.status) {
-        const status = extractFieldValue(line, 'STATUS');
-        if (!normalizeSearchText(status).includes(normalizeSearchText(f.status))) {
-          return false;
-        }
-      }
-
-      // Rank
-      if (f.rank) {
-        const rank = extractFieldValue(line, 'RANK');
-        if (!normalizeSearchText(rank).includes(normalizeSearchText(f.rank))) {
-          return false;
-        }
-      }
-
-      // Facebook
-      if (f.facebook) {
-        const fbStatus = extractFacebookStatus(line);
-        if (fbStatus !== f.facebook) return false;
-      }
-
-      // Ban
-      if (f.ban) {
-        const banStatus = extractYesNo(line, 'BAN');
-        if (banStatus !== f.ban) return false;
-      }
-
-      // Email
-      if (f.email) {
-        const emailStatus = extractYesNo(line, 'EMAIL');
-        if (emailStatus !== f.email) return false;
-      }
-
-      // CMND
-      if (f.cmnd) {
-        const cmndStatus = extractYesNo(line, 'CMND');
-        if (cmndStatus !== f.cmnd) return false;
-      }
-
-      // Authen
-      if (f.authen) {
-        const authenStatus = extractYesNo(line, 'AUTHEN');
-        if (authenStatus !== f.authen) return false;
-      }
-
-      // SDT
-      if (f.sdt) {
-        const sdtStatus = extractYesNo(line, 'SDT');
-        if (sdtStatus !== f.sdt) return false;
-      }
+      // Quick search
+      if (f.quick && !normalizedLine.includes(f.quick)) return false;
 
       // Countries
       if (f.countries.length) {
-        const country = normalizeSearchText(extractFieldValue(line, 'COUNTRY')).toUpperCase();
+        const country = normalizeSearchText(extractText(line, 'QUOC_GIA'));
         if (!f.countries.includes(country)) return false;
       }
 
-      // SSS Skin Filter
-      if (f.filterSSS && hasBlockedSSSSkin(line, f.blockedSSS)) {
+      // Status & Rank
+      if (f.status && !normalizeSearchText(extractText(line, 'STATUS')).includes(normalizeSearchText(f.status))) {
         return false;
       }
+      if (f.rank && !normalizeSearchText(extractText(line, 'RANK')).includes(normalizeSearchText(f.rank))) {
+        return false;
+      }
+
+      // Hero & Skin range
+      if (!matchRange(extractNumber(line, 'HERO'), f.heroes)) return false;
+      if (!matchRange(extractNumber(line, 'SKIN'), f.skins)) return false;
+
+      // Min values
+      if (!passMin(line, 'LEVEL', f.level)) return false;
+      if (!passMin(line, 'SÒ', f.so)) return false;
+      if (!passMin(line, 'QH', f.qh)) return false;
+      if (!passMin(line, 'LAN NAP', f.timesRecharged)) return false;
+      if (!passMin(line, 'SS', f.ss)) return false;
+      if (!passMin(line, 'SSS', f.sss)) return false;
+      if (!passMin(line, 'ANIME', f.anime)) return false;
+
+      // Yes/No fields
+      if (!matchSelect(line, 'BAN', f.ban)) return false;
+      if (!matchSelect(line, 'EMAIL', f.email)) return false;
+      if (!matchSelect(line, 'CMND', f.cmnd)) return false;
+      if (!matchSelect(line, 'AUTHEN', f.authen)) return false;
+      if (!matchSelect(line, 'SDT', f.sdt)) return false;
+
+      // Facebook
+      if (f.facebook && extractFacebookStatus(line) !== f.facebook) return false;
+
+      // Blocked SSS skins
+      if (f.filterSSS && hasBlockedSSSSkin(line, f.blockedSSS)) return false;
 
       return true;
     }
 
-    // ========== RUN FILTERS ==========
+    // ============ FILTER EXECUTION ============
+
+    function scheduleAutoFilter() {
+      if (!rawLines.length) return;
+      window.clearTimeout(scheduleAutoFilter.timer);
+      scheduleAutoFilter.timer = window.setTimeout(() => {
+        runFilters({ silent: true });
+      }, 250);
+    }
+
     function runFilters(options = {}) {
       const { silent = false } = options;
 
@@ -1188,54 +1115,13 @@
       }
     }
 
-    // ========== AUTO FILTER SCHEDULER ==========
-    function scheduleAutoFilter() {
-      if (!rawLines.length) return;
-      window.clearTimeout(scheduleAutoFilter.timer);
-      scheduleAutoFilter.timer = window.setTimeout(() => {
-        runFilters({ silent: true });
-      }, 250);
-    }
-
-    // ========== EXPORT FUNCTIONS ==========
-    function getCredentialPair(line) {
-      const firstPart = String(line || '').split('|')[0].trim();
-      if (!firstPart) return null;
-
-      // Format: user:pass
-      if (firstPart.includes(':')) {
-        const [user, ...passParts] = firstPart.split(':');
-        const pass = passParts.join(':');
-        if (user && pass) return { user: user.trim(), pass: pass.trim() };
-      }
-
-      // Format: user | pass (2 phần đầu tiên)
-      const pipeParts = String(line || '').split('|').map(part => part.trim());
-      if (pipeParts.length >= 2 && pipeParts[0] && pipeParts[1]) {
-        const secondLooksLikeField = /^[A-ZÀ-Ỹ0-9 _-]+\s*:/i.test(pipeParts[1]);
-        if (!secondLooksLikeField) {
-          return { user: pipeParts[0], pass: pipeParts[1] };
-        }
-      }
-
-      return null;
-    }
-
-    function downloadTxt(filename, lines) {
-      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-
     function setExportButtonsEnabled(enabled) {
       els.exportFull.disabled = !enabled;
       els.exportColon.disabled = !enabled;
       els.exportPipe.disabled = !enabled;
     }
+
+    // ============ UPDATE DATA ============
 
     function updateData(text) {
       rawLines = normalizeLines(text);
@@ -1256,7 +1142,100 @@
       }
     }
 
-    // ========== EVENT LISTENERS ==========
+    // ============ EXPORT FUNCTIONS ============
+
+    function getCredentialPair(line) {
+      const text = String(line || '');
+
+      // Try to extract from first segment (user:pass or user)
+      const firstSegment = text.split('|')[0].trim();
+
+      if (firstSegment.includes(':')) {
+        const colonIdx = firstSegment.indexOf(':');
+        const user = firstSegment.substring(0, colonIdx).trim();
+        const pass = firstSegment.substring(colonIdx + 1).trim();
+
+        if (user && pass) {
+          // Make sure it's not a field:value pair
+          if (!pass.includes(':') && pass.length > 2) {
+            return { user, pass };
+          }
+        }
+      }
+
+      // Try first two segments separated by |
+      const segments = text.split('|').map(s => s.trim()).filter(Boolean);
+      if (segments.length >= 2) {
+        const firstPart = segments[0];
+        const secondPart = segments[1];
+
+        // Check if first part looks like user:pass
+        if (firstPart.includes(':') && !firstPart.match(/^[A-Z_]+\s*:/i)) {
+          const [user, ...passParts] = firstPart.split(':');
+          const pass = passParts.join(':').trim();
+          if (user && pass) return { user: user.trim(), pass };
+        }
+
+        // Check if second part looks like a field definition
+        if (!secondPart.match(/^[A-Z_]+\s*:/i)) {
+          return { user: firstPart, pass: secondPart };
+        }
+      }
+
+      return null;
+    }
+
+    function downloadTxt(filename, lines) {
+      const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+
+      URL.revokeObjectURL(url);
+      log(`Đã xuất ${lines.length} dòng: ${filename}`);
+    }
+
+    function exportFull() {
+      if (!filteredLines.length) {
+        log('Không có dữ liệu để xuất.', 'error');
+        return;
+      }
+      downloadTxt(`loc-acc-full-${Date.now()}.txt`, filteredLines);
+    }
+
+    function exportColon() {
+      const rows = filteredLines
+        .map(getCredentialPair)
+        .filter(Boolean)
+        .map(pair => `${pair.user}:${pair.pass}`);
+
+      if (!rows.length) {
+        log('Không tìm thấy cặp user:pass.', 'error');
+        return;
+      }
+
+      downloadTxt(`loc-acc-user-pass-${Date.now()}.txt`, rows);
+    }
+
+    function exportPipe() {
+      const rows = filteredLines
+        .map(getCredentialPair)
+        .filter(Boolean)
+        .map(pair => `${pair.user}|${pair.pass}`);
+
+      if (!rows.length) {
+        log('Không tìm thấy cặp user|pass.', 'error');
+        return;
+      }
+
+      downloadTxt(`loc-acc-user-pipe-${Date.now()}.txt`, rows);
+    }
+
+    // ============ EVENT LISTENERS ============
+
     els.loadFile.addEventListener('click', () => els.fileInput.click());
 
     els.fileInput.addEventListener('change', async () => {
@@ -1274,7 +1253,7 @@
       if (typeof els.pasteModal.showModal === 'function') {
         els.pasteModal.showModal();
       } else {
-        alert('Trình duyệt của bạn chưa hỗ trợ dialog. Hãy dùng Chrome/Edge bản mới.');
+        alert('Trình duyệt chưa hỗ trợ dialog. Dùng Chrome/Edge mới.');
       }
     });
 
@@ -1285,6 +1264,7 @@
 
     els.pasteCancel.addEventListener('click', () => els.pasteModal.close());
     els.closeModal.addEventListener('click', () => els.pasteModal.close());
+
     els.run.addEventListener('click', () => runFilters());
 
     els.form.addEventListener('input', scheduleAutoFilter);
@@ -1297,44 +1277,9 @@
       log('Đã xóa kết quả.');
     });
 
-    els.exportFull.addEventListener('click', () => {
-      if (!filteredLines.length) {
-        log('Không có dữ liệu để xuất.', 'error');
-        return;
-      }
-      downloadTxt(`ket-qua-loc-${Date.now()}.txt`, filteredLines);
-      log(`Đã xuất ${filteredLines.length} dòng (nguyên gốc).`);
-    });
-
-    els.exportColon.addEventListener('click', () => {
-      const pairs = filteredLines
-        .map(getCredentialPair)
-        .filter(Boolean)
-        .map(p => `${p.user}:${p.pass}`);
-
-      if (!pairs.length) {
-        log('Không tìm thấy cặp user:pass trong dữ liệu.', 'error');
-        return;
-      }
-
-      downloadTxt(`user-pass-colon-${Date.now()}.txt`, pairs);
-      log(`Đã xuất ${pairs.length} dòng (user:pass).`);
-    });
-
-    els.exportPipe.addEventListener('click', () => {
-      const pairs = filteredLines
-        .map(getCredentialPair)
-        .filter(Boolean)
-        .map(p => `${p.user}|${p.pass}`);
-
-      if (!pairs.length) {
-        log('Không tìm thấy cặp user|pass trong dữ liệu.', 'error');
-        return;
-      }
-
-      downloadTxt(`user-pass-pipe-${Date.now()}.txt`, pairs);
-      log(`Đã xuất ${pairs.length} dòng (user|pass).`);
-    });
+    els.exportFull.addEventListener('click', exportFull);
+    els.exportColon.addEventListener('click', exportColon);
+    els.exportPipe.addEventListener('click', exportPipe);
 
     els.reset.addEventListener('click', () => {
       els.form.reset();
